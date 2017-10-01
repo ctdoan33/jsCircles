@@ -68,26 +68,29 @@
 				for(circle in circles){
 					circles[circle].update(1);
 				}
+				collision();
 				//function to detect any collision
-				function collision(){
+				function collision(){ //needs to be defined inside playground function in order to utilize array of circles. Also part of loop for detection
 					for(var i=0; i<circles.length; i++){
 						for(var j=i+1; j<circles.length; j++){
-							if(circles[i]==undefined||circles[j]==undefined){
+							if(circles[i]==undefined||circles[j]==undefined){ //skips deleted circles
 							continue;
 							}
 							var circle1=document.getElementById(String(i)); //svg element has position, radius, id, and color as attributes
 							var circle2=document.getElementById(String(j));
 							var x1=circles[i].info.cx; //array object has position and velocity in info key
-							var x2=circles[j].info.cx;
 							var y1=circles[i].info.cy;
+							var x2=circles[j].info.cx;
 							var y2=circles[j].info.cy;
 							var vx1=circles[i].info.velocity.x; //get velocities, used to determine final velocity for merges and bounces
-							var vx2=circles[j].info.velocity.x;
 							var vy1=circles[i].info.velocity.y;
+							var vx2=circles[j].info.velocity.x;
 							var vy2=circles[j].info.velocity.y;
 							var distance=Math.sqrt((x1-x2)*(x1-x2)+(y1-y2)*(y1-y2)); //distance between centers of circles
 							var r1=Number(circle1.getAttribute("r"));
 							var r2=Number(circle2.getAttribute("r"));
+							var w1=r1*r1/(r1*r1+r2*r2); //calculate proportionate weights based on area, used for merges
+							var w2=r2*r2/(r1*r1+r2*r2);
 							if(distance<r1+r2){ //distance when just touching is sum of radii
 								// disappearOnCollision();
 								function disappearOnCollision(){
@@ -98,34 +101,84 @@
 								}
 								// mergeOnCollision();
 								function mergeOnCollision(){
-									var w1=r1*r1/(r1*r1+r2*r2); //calculate proportionate weights, based on total area
-									var w2=r2*r2/(r1*r1+r2*r2);
 									disappearOnCollision();
-									playground.createNewCircle(x1*w1+x2*w2, y1*w1+y2*w2, Math.sqrt(r1*r1+r2*r2), vx1*w1+vx2*w2, vy1*w1+vy2*w2); 
+									playground.createNewCircle(x1*w1+x2*w2, y1*w1+y2*w2, Math.sqrt(r1*r1+r2*r2), vx1*w1+vx2*w2, vy1*w1+vy2*w2); //createNewCircle adjusted to accept more parameters
 								}//new circle has weighted position, radius, and velocity based on parent circles
-								bounceOnCollision();
+								// bounceOnCollision();
 								function bounceOnCollision(){ //bounce calculations based on perfect elastic collision, conserved momentum, assuming equal masses
 									var angle=Math.atan((x2-x1)/(y2-y1)); //angle of plane of collision, from right horizontal;
-									var sinsq=Math.sin(angle)*Math.sin(angle); //common trig products to be used
+									var sinsqu=Math.sin(angle)*Math.sin(angle); //common trig products to be used
 									var sincos=Math.sin(angle)*Math.cos(angle);
-									var cossq=Math.cos(angle)*Math.cos(angle);
-									circles[i].info.velocity.x=vx1*cossq-vy1*sincos+vx2*sinsq+vy2*sincos;
-									circles[i].info.velocity.y=-vx1*sincos+vy1*sinsq+vx2*sincos+vy2*cossq;
-									circles[j].info.velocity.x=vx1*sinsq+vy1*sincos+vx2*cossq-vy2*sincos;
-									circles[j].info.velocity.y=vx1*sincos+vy1*cossq-vx2*sincos+vy2*sinsq;
+									var cossqu=Math.cos(angle)*Math.cos(angle);
+									circles[i].info.velocity.x= vx1*cossqu -vy1*sincos +vx2*sinsqu +vy2*sincos;
+									circles[i].info.velocity.y=-vx1*sincos +vy1*sinsqu +vx2*sincos +vy2*cossqu;
+									circles[j].info.velocity.x= vx1*sinsqu +vy1*sincos +vx2*cossqu -vy2*sincos;
+									circles[j].info.velocity.y= vx1*sincos +vy1*cossqu -vx2*sincos +vy2*sinsqu;
 								}//each velocity is sum of components from (1)xvelocity of circle1 (2)yvelocity of circle1, (3)xvelocity of circle2, (4)yvelocity of circle2
-								changeColorOnCollision();
+								// changeColorOnCollision();
 								function changeColorOnCollision(){
 									circle1.setAttribute("style", "fill: "+random_color());
 									circle2.setAttribute("style", "fill: "+random_color());
+								}
+								gracefulMerge();
+								function gracefulMerge(){
+									var color1=circle1.getAttribute("style"); //color needed for graceful merge
+									var color2=circle2.getAttribute("style");
+									var id1="m"+i;
+									var id2="m"+j;
+									var mr=Math.sqrt(r1*r1+r2*r2); // target radius for resultant circle
+									var dx1=r1/(r1+r2)*(x2-x1); // distances from circles to collision, i.e. distance to target location
+									var dy1=r1/(r1+r2)*(y2-y1);
+									var dx2=r2/(r1+r2)*(x1-x2);
+									var dy2=r2/(r1+r2)*(y1-y2);
+									disappearOnCollision(); //cannot leave circles in place due to loop, must remove circles in array or IDed by loop
+									var makeSVG = function(tag, attrs) { //makeSVG defined again in scope
+										var el= document.createElementNS('http://www.w3.org/2000/svg', tag);
+										for (var k in attrs){
+											el.setAttribute(k, attrs[k]);
+										}
+										return el;
+									}
+									var mcircle1 = makeSVG('circle', //replica of circle1 that is not affected by loop
+									{ 	cx: x1,
+										cy: y1,
+										r:  r1,
+										id: id1,
+										style: color1
+									})
+									document.getElementById('svg').appendChild(mcircle1);
+									var mc1=document.getElementById(String(id1));
+									var mcircle2 = makeSVG('circle', //replica of circle2 not that is not affected by loop
+									{ 	cx: x2,
+										cy: y2,
+										r:  r2,
+										id: id2,
+										style: color2
+									})
+									document.getElementById('svg').appendChild(mcircle2);
+									var mc2=document.getElementById(String(id2));
+									setTimeout(function mergeStep(){ // delay between steps for gradual visual steps towards target
+										mc1.setAttribute("r", String(Number(mc1.getAttribute("r"))+(mr-r1)/100));
+										mc1.setAttribute("cx", String(Number(mc1.getAttribute("cx"))+(dx1)/100));
+										mc1.setAttribute("cy", String(Number(mc1.getAttribute("cy"))+(dy1)/100));
+										mc2.setAttribute("r", String(Number(mc2.getAttribute("r"))+(mr-r2)/100));
+										mc2.setAttribute("cx", String(Number(mc2.getAttribute("cx"))+(dx2)/100));
+										mc2.setAttribute("cy", String(Number(mc2.getAttribute("cy"))+(dy2)/100));
+										if(mc1.getAttribute("r")<mr){ // do another mergestep if target not reached
+											setTimeout(mergeStep, 10);
+										}else{
+											document.getElementById("svg").removeChild(mc1);
+											document.getElementById("svg").removeChild(mc2);
+											playground.createNewCircle(x1+dx1, y1+dy1, Math.sqrt(r1*r1+r2*r2), vx1*w1+vx2*w2, vy1*w1+vy2*w2);
+										}
+									}, 10);
 								}
 							}
 						}
 					}
 				}
-				collision();
 			}
-			this.createNewCircle = function(x,y,r,vx,vy){ //adjusted to accommodate radius and velocity inputs (functions calling and called by this also adjusted)
+			this.createNewCircle = function(x,y,r,vx,vy){ //adjusted to accommodate radius and velocity parameters (functions calling and called by this also adjusted)
 				var new_circle = new Circle(x,y,counter++,r,vx,vy);
 				circles.push(new_circle);
 				// console.log('created a new circle!', new_circle);
@@ -150,7 +203,7 @@
 		document.onclick = function(e) {
 			playground.createNewCircle(e.x,e.y,radius);
 		}
-		function random_color(){//for random color
+		function random_color(){
 			var rgb=['a','b','c','d','e','f','0','1','2','3','4','5','6','7','8','9'];
 			color='#';
 			for(var i = 0; i < 6; i++){
@@ -159,6 +212,6 @@
 			}
 			return color;
 		}
-</script>
+	</script>
 </body>
 </html>
